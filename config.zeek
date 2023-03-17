@@ -26,6 +26,5 @@ export {
 	global SKIP_SIGNATURE_DOWNLOAD: bool = T;
 	global CLUSTER_ID = "dovehawk"; #source name for MISP sightings
 
-
-
+	option signature_refresh_period = 4hr;
 }

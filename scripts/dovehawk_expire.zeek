@@ -33,9 +33,6 @@ export {
 
 }
 
-@load ./dovehawk
-
-
 hook extend_match(info: Info, s: Seen, items: set[Item])
 {
 	local matches = |items|;

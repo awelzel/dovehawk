@@ -7,7 +7,6 @@
 module dovehawk;
 
 @load ../config
-@load ./dovehawk_expire
 
 @load-sigs ../signatures/signatures.sig
 
@@ -29,6 +28,8 @@ export {
 }
 
 
+# This uses register_hit and slack_hit
+@load ./dovehawk_expire
 
 # Modelled on the original function from ActiveHTTP but they stripped out the newlines and joined
 # everything together. Need to keep the original string vector to process individual lines.
@@ -70,7 +71,7 @@ function strings_request(req: ActiveHTTP::Request): string_vec
 	local cmd = request2curl(req, bodyfile, headersfile);
 	local stdin_data = req?$client_data ? req$client_data : "";
 	
-	return when ( local result = Exec::run([$cmd=cmd, $stdin=stdin_data, $read_files=set(bodyfile, headersfile)]) )
+	return when [req, bodyfile, headersfile, stdin_data, cmd] ( local result = Exec::run([$cmd=cmd, $stdin=stdin_data, $read_files=set(bodyfile, headersfile)]) )
 	{
 		# If there is no response line then nothing else will work either.
 		if ( ! (result?$files && headersfile in result$files) )
@@ -94,7 +95,7 @@ function load_sigs_misp() {
 
 	if (!dovehawk::SKIP_SIGNATURE_DOWNLOAD) {
 		local check = "find " + @DIR + "/../signatures/" + fname + " -mmin +60 | egrep .";
-		when (local r = Exec::run([$cmd=check]) )
+		when [fname, check] (local r = Exec::run([$cmd=check]) )
 		{
         		if (r$exit_code != 0) {
 				print "INFO: file is recent not updating: " + fname;
@@ -105,7 +106,7 @@ function load_sigs_misp() {
 
 
 	print "Downloading Signatures...";
-	when ( local lines = strings_request(request) ) {
+	when [fname, request] ( local lines = strings_request(request) ) {
 		if (|lines| >= 0 ) {
 			print "Updating File " + fname;
 			# Directory variable appends period for some reason
@@ -159,7 +160,7 @@ function load_all_misp() {
 
     print "Downloading Indicators...";
 	
-    when ( local lines = strings_request(request) ) {
+    when [request] ( local lines = strings_request(request) ) {
 		if (|lines| > 0 ) {
 			print "Processing Indicators...";
 			print fmt("Number of Indicators %d", |lines|);
@@ -279,7 +280,7 @@ function register_hit(hitvalue: string, desc: string) {
 	$addl_curl_args = fmt("--header \"Authorization: %s\" --header \"Content-Type: application/json\" --header \"Accept: application/json\" %s", safe_shell_quote(dovehawk::APIKEY), insecure)
     ];
 	
-    when ( local resp = ActiveHTTP::request(request) ) {
+    when [request] ( local resp = ActiveHTTP::request(request) ) {
 		
 		if (resp$code == 200) {
 			#print "  Sighting added";
@@ -313,7 +314,7 @@ function slack_hit(hitvalue: string, desc: string) {
 	$addl_curl_args = fmt(" --header \"Content-Type: application/json\" --header \"Accept: application/json\" %s", insecure)
     ];
 	
-    when ( local resp = ActiveHTTP::request(request) ) {
+    when [request] ( local resp = ActiveHTTP::request(request) ) {
 		
 		if (resp$code == 200) {
 			#print "  Slack web hook success";
